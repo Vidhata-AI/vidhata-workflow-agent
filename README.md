@@ -136,3 +136,43 @@ No open-source license has been selected yet. Licensing will be decided before a
 ---
 
 **Vidhata AI — Understand the issue. Review the change. Keep the developer in control.**
+## Backend API
+
+Vidhata AI uses a FastAPI backend to validate issue descriptions submitted through the developer workspace.
+
+### Endpoints
+
+| Method | Endpoint | Purpose | Success response |
+|---|---|---|---|
+| GET | `/health` | Check backend availability | `200 OK` |
+| POST | `/issues` | Validate and acknowledge an issue description | `202 Accepted` |
+
+### Issue Submission
+
+Send a JSON request to `POST /issues`:
+
+```json
+{
+  "description": "The login button does not respond when clicked."
+}
+```
+
+**Validation rules**
+- `description` is required.
+- Leading and trailing whitespace is trimmed.
+- The description must contain 1–2000 characters after trimming.
+- Invalid input returns `422 Unprocessable Entity`.
+
+### Current Limitations
+
+The current endpoint validates and acknowledges issue descriptions only. It does not yet inspect a repository, perform AI-based analysis, generate patches, modify files, or execute tests on the user's code.
+
+These capabilities are planned for future development.
+
+### Running Backend Tests
+
+From the `backend` directory, activate the virtual environment and run:
+
+```powershell
+python -m pytest -v
+```
