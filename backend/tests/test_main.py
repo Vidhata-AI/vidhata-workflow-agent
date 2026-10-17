@@ -65,3 +65,56 @@ def test_cors_allows_only_configured_frontend_origin() -> None:
         "access-control-allow-headers"
     ].lower()
     assert disallowed_response.status_code == 400
+
+
+def test_rejects_missing_or_non_string_description() -> None:
+    """Missing or non-string descriptions are invalid."""
+    missing_response = client.post("/issues", json={})
+    non_string_response = client.post(
+        "/issues",
+        json={"description": 123},
+    )
+
+    assert missing_response.status_code == 422
+    assert non_string_response.status_code == 422
+
+    missing_errors = missing_response.json()["detail"]
+    non_string_errors = non_string_response.json()["detail"]
+
+    assert any(
+        error["loc"][-1] == "description"
+        for error in missing_errors
+    )
+    assert any(
+        error["loc"][-1] == "description"
+        for error in non_string_errors
+    )
+
+
+
+def test_accepts_description_at_maximum_length() -> None:
+    """A description containing exactly 2000 characters is accepted."""
+    response = client.post(
+        "/issues",
+        json={"description": "a" * 2000},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "accepted"
+
+def test_health_endpoint_returns_ok() -> None:
+    """Health endpoint confirms that the backend is available."""
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+def test_trims_whitespace_from_description() -> None:
+    """Leading and trailing whitespace are trimmed before validation."""
+    response = client.post(
+        "/issues",
+        json={"description": "   Login fails after sign-in.   "},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "accepted"
