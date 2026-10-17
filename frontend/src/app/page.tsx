@@ -1,45 +1,66 @@
-
 "use client";
 
 import { useState } from "react";
-
-const files = [
-  { name: "src", type: "folder", indent: 0 },
-  { name: "app", type: "folder", indent: 1 },
-  { name: "page.tsx", type: "file", indent: 2 },
-  { name: "layout.tsx", type: "file", indent: 2 },
-  { name: "globals.css", type: "file", indent: 2 },
-  { name: "components", type: "folder", indent: 0 },
-  { name: "backend", type: "folder", indent: 0 },
-  { name: "main.py", type: "file", indent: 1 },
-  { name: "requirements.txt", type: "file", indent: 0 },
-];
-
-const initialCode = `def calculate_total(items):
-    total = 0
-
-    for item in items:
-        total += item["price"]
-
-    return total
+import FileExplorer from "@/components/FileExplorer";
+import { mockCode } from "@/lib/mock-data";
 
 
-def apply_discount(total, discount):
-    # TODO: Validate discount range
-    return total - (total * discount)`;
 
 export default function Home() {
   const [issue, setIssue] = useState("");
-  const [activeFile, setActiveFile] = useState("page.tsx");
+  const [activeFile, setActiveFile] = useState("src/app/page.tsx");
   const [message, setMessage] = useState("");
+  const [submissionStatus, setSubmissionStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
   const [selectedTab, setSelectedTab] = useState("Code");
+   // Display the selected file's matching demo content.
+  const selectedCode =mockCode[activeFile] ?? "// No preview available for this file.";
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!issue.trim()) return;
-    setMessage(
-      "Issue received. AI analysis will be available after backend integration."
-    );
+    if (submissionStatus === "loading") return;
+
+    if (!issue.trim()) {
+      setSubmissionStatus("error");
+      setMessage("Enter an issue description before submitting.");
+      return;
+    }
+
+    setSubmissionStatus("loading");
+    setMessage("");
+
+    // This URL is public frontend configuration; never put credentials here.
+    const apiBaseUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl.replace(/\/$/, "")}/issues`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: issue }),
+        }
+      );
+
+      if (!response.ok) {
+        setSubmissionStatus("error");
+        setMessage(
+          response.status === 422
+            ? "Description must be between 1 and 2000 characters."
+            : "Could not submit the issue. Please try again."
+        );
+        return;
+      }
+
+      setSubmissionStatus("success");
+      setMessage("Issue description received. No code has been modified.");
+    } catch {
+      // Do not expose server details; a network failure is enough to guide the user.
+      setSubmissionStatus("error");
+      setMessage("Could not reach the backend. Check that it is running.");
+    }
   }
 
   return (
@@ -48,14 +69,14 @@ export default function Home() {
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.08] px-5">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white">
-            D
+            V
           </div>
           <div>
             <h1 className="text-sm font-semibold tracking-wide">
-              Developer Workflow Agent
+              Vidhata AI
             </h1>
             <p className="text-[10px] text-gray-500">
-              AI-powered development workspace
+              Your Autonomous Developer Workflow Agent
             </p>
           </div>
         </div>
@@ -72,53 +93,14 @@ export default function Home() {
 
       {/* Workspace */}
       <div className="flex min-h-0 flex-1">
-        {/* File explorer */}
-        <aside className="hidden w-60 shrink-0 border-r border-white/[0.08] bg-[#0e1016] md:flex md:flex-col">
-          <div className="flex h-12 items-center justify-between px-4">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-              Explorer
-            </span>
-            <span className="text-xs text-gray-500">⌘</span>
-          </div>
-
-          <div className="border-b border-white/[0.06] px-4 pb-4">
-            <p className="mb-2 text-xs text-gray-500">PROJECT</p>
-            <div className="flex items-center gap-2 rounded-md bg-indigo-500/10 px-2 py-2 text-sm text-indigo-300">
-              <span>⌄</span>
-              <span> DWA</span>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto py-3">
-            {files.map((file) => (
-              <button
-                key={file.name}
-                onClick={() => {
-                  setActiveFile(file.name);
-                  setSelectedTab("Code");
-                }}
-                className={`flex w-full items-center gap-2 py-2 pr-2 text-left text-xs transition ${
-                  activeFile === file.name
-                    ? "bg-indigo-500/15 text-indigo-300"
-                    : "text-gray-400 hover:bg-white/[0.04] hover:text-gray-200"
-                }`}
-                style={{ paddingLeft: `${14 + file.indent * 16}px` }}
-              >
-                <span className={file.type === "folder" ? "text-amber-300" : "text-sky-400"}>
-                  {file.type === "folder" ? "▸" : "◈"}
-                </span>
-                {file.name}
-              </button>
-            ))}
-          </div>
-
-          <div className="border-t border-white/[0.08] p-4">
-            <p className="text-xs text-gray-500">Repository status</p>
-            <p className="mt-2 text-xs text-emerald-400">
-              ● Workspace ready
-            </p>
-          </div>
-        </aside>
+        {/* Repository explorer: selection is managed by Home. */}
+<FileExplorer
+  activePath={activeFile}
+  onSelectFile={(path) => {
+    setActiveFile(path);
+    setSelectedTab("Code");
+  }}
+/>
 
         {/* Main editor */}
         <section className="flex min-w-0 flex-1 flex-col">
@@ -148,7 +130,7 @@ export default function Home() {
 
           <div className="min-h-0 flex-1 overflow-auto p-5 sm:p-8">
             <div className="mb-7">
-              <p className="text-xs text-indigo-400">WORKSPACE / DWA</p>
+              <p className="text-xs text-indigo-400">WORKSPACE / VIDHATA AI</p>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight">
                 Developer workspace
               </h2>
@@ -169,7 +151,7 @@ export default function Home() {
                 </div>
 
                 <div className="overflow-x-auto p-4 font-mono text-xs leading-7 sm:text-sm">
-                  {initialCode.split("\n").map((line, i) => (
+                  {selectedCode.split("\n").map((line, i) => (
                     <div key={i} className="flex min-w-max">
                       <span className="mr-5 inline-block w-5 select-none text-right text-gray-600">
                         {i + 1}
@@ -227,7 +209,7 @@ export default function Home() {
           </div>
 
           <div className="border-t border-white/[0.08] px-4 py-2 text-[10px] text-gray-500">
-            DWA Prototype · Frontend development
+            Vidhata AI · Frontend development
           </div>
         </section>
 
@@ -248,8 +230,8 @@ export default function Home() {
 
             <h3 className="text-sm font-medium">What are we fixing today?</h3>
             <p className="mt-2 text-xs leading-6 text-gray-500">
-              Describe a bug or unexpected behaviour. The connected agent will
-              inspect relevant code and propose a reviewable patch.
+              Describe a bug or unexpected behaviour. Issue descriptions are
+              accepted for future analysis; no code is inspected or modified yet.
             </p>
 
             <div className="mt-5 rounded-lg border border-white/[0.08] p-3">
@@ -271,7 +253,17 @@ export default function Home() {
             </div>
 
             {message && (
-              <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-200">
+              <div
+                role="status"
+                aria-live="polite"
+                className={`mt-4 rounded-lg border p-3 text-xs leading-5 ${
+                  submissionStatus === "error"
+                    ? "border-rose-400/20 bg-rose-400/5 text-rose-200"
+                    : submissionStatus === "success"
+                      ? "border-emerald-400/20 bg-emerald-400/5 text-emerald-200"
+                      : "border-amber-400/20 bg-amber-400/5 text-amber-200"
+                }`}
+              >
                 {message}
               </div>
             )}
@@ -284,19 +276,28 @@ export default function Home() {
             <textarea
               id="issue"
               value={issue}
-              onChange={(e) => setIssue(e.target.value)}
+              maxLength={2000}
+              required
+              onChange={(e) => {
+                setIssue(e.target.value);
+                if (submissionStatus !== "idle") {
+                  setSubmissionStatus("idle");
+                  setMessage("");
+                }
+              }}
               placeholder="e.g. Login fails when..."
               rows={4}
               className="w-full resize-none rounded-lg border border-white/10 bg-[#090b10] p-3 text-xs leading-5 text-white outline-none placeholder:text-gray-600 focus:border-indigo-500/60"
             />
             <button
               type="submit"
-              className="mt-3 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-indigo-400"
+              disabled={submissionStatus === "loading"}
+              className="mt-3 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-indigo-400 disabled:cursor-wait disabled:opacity-60"
             >
-              Submit issue ↗
+              {submissionStatus === "loading" ? "Submitting..." : "Submit issue ↗"}
             </button>
             <p className="mt-2 text-center text-[10px] text-gray-600">
-              Preview only · No code is modified
+              Issue descriptions only · No code is modified
             </p>
           </form>
         </aside>

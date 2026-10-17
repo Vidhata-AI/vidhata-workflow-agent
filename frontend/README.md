@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vidhata AI
+
+Your Autonomous Developer Workflow Agent.
+
+Vidhata AI is a developer workspace for inspecting code, investigating issues, and reviewing proposed fixes.
 
 ## Getting Started
 
